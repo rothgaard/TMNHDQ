@@ -17,4 +17,4 @@ g=sns.heatmap(data_clean[top_corr_features].corr(),annot=True,cmap="RdYlGn")
 
 #print(data_clean.to_string())
 plt.yticks(rotation=0)
-plt.savefig('cov_mtx.pdf')
+plt.savefig('corr_heatmap.png')
