@@ -53,10 +53,24 @@ plt.title("Feature importance using LassoCV Model")
 
 plt.savefig('LassoCV.png')
 
-# Random Forest
+# Random Forest - Understand Key Factors
 rf = RandomForestRegressor(n_estimators=200)
 rf.fit(X, y)
 
 print("Features sorted by their score:")
 print(sorted(zip(map(lambda x: round(x, 4), rf.feature_importances_), names), 
              reverse=True))
+
+# Random Forest - with pred tests
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+regressor = RandomForestRegressor(n_estimators=200, random_state=0)
+regressor.fit(X_train, y_train)
+y_pred = regressor.predict(X_test)
+
+from sklearn import metrics
+print('Mean of estimate:', y.mean())
+print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
+print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
+print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
