@@ -9,8 +9,8 @@ from sklearn.model_selection import cross_val_score
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_selection import RFECV
 
-data = pd.read_csv("./processed_data.csv", index_col=0)
-target = pd.read_csv("./processed_target_data.csv", index_col=0)
+data = pd.read_csv("./data/processed_data.csv", index_col=0)
+target = pd.read_csv("./data/processed_target_data.csv", index_col=0)
 
 data_clean = data.drop(columns=['doc_key'])
 data_clean.fillna(0, inplace=True)
@@ -57,34 +57,60 @@ import numpy as np
 # target_clean = target_clean.drop(columns=features_to_remove)
 
 # End Lasso
-bin_labels_5 = ['XS', 'S', 'M', 'L', 'XL']
+
 bin_labels_2 = ['S', 'L']
 bin_labels_3 = ['S', 'M', 'L']
+bin_labels_4 = ['S', 'M', 'L', 'XL']
+bin_labels_5 = ['XS', 'S', 'M', 'L', 'XL']
 
-bin_labels = bin_labels_2
+bin_labels = bin_labels_5
 y_bins = pd.qcut(y, q=len(bin_labels), labels=bin_labels)
+raw_bins = pd.qcut(y, q=len(bin_labels))
 
-from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.model_selection import LeaveOneOut
 
-# # TF-IDF
-# tfidf_transformer=TfidfTransformer(smooth_idf=True,use_idf=True)
-# tfidf_transformer = tfidf_transformer.fit_transform(X)
-# X = pd.DataFrame(tfidf_transformer.toarray(), columns=X.columns)
-
+cv_loo = LeaveOneOut()
 model = MultinomialNB()
-selector = RFECV(estimator=model, min_features_to_select=5, step=1, cv=5)
+selector = RFECV(estimator=model, min_features_to_select=1, step=1, cv=cv_loo, scoring='accuracy')
 selector = selector.fit(X, y_bins)
-
-cv_results = cross_val_score(model, X, y_bins, cv=5, scoring='accuracy')
 
 print("=== Results with Multinomial Naive Bayes ===")
 print('Bins: ', bin_labels)
+print('Bin Ranges: ', raw_bins.dtype.categories.to_tuples().to_numpy())
 print('Counts:')
 print(y_bins.value_counts())
-print('\nCurrent accuracy of model (via cross Validation) is:', cv_results.mean() * 100)
 
-print("=== Prediction of target ===")
-prediction = selector.predict(target_clean[0:1])
-print(target["doc_key"].to_numpy() , prediction)
-print("Range(days): [{},{}]".format(y.quantile(q=bin_labels.index(prediction)/len(bin_labels)),
-      y.quantile(q=(bin_labels.index(prediction)+1)/len(bin_labels))))
+print('\nTotal number of features (aka Words) in data: %d' % X.shape[1])
+print("Number of features (aka Words) in optimal model: %d" % selector.n_features_)
+print("Mean accuracy score (%%) for optimal model: %d" % int(selector.score(X,y_bins)*100))
+
+print("\nTop ranked features:")
+f = selector.get_support(1)
+print(X.columns[f].to_numpy())
+
+plt.figure(figsize=(16, 9))
+plt.title('Recursive Feature Elimination with Cross-Validation', fontsize=18, fontweight='bold', pad=20)
+plt.xlabel('Number of features selected', fontsize=14, labelpad=20)
+plt.ylabel('% Correct Classification', fontsize=14, labelpad=20)
+plt.plot(range(1, len(selector.grid_scores_) + 1), selector.grid_scores_, color='#303F9F', linewidth=3)
+
+plt.savefig('RFECV_Selection.png')
+
+def compute_tf_idf(matrix_of_term_freq):
+    """Computes the tf_idf matrix from a term frequence matrix
+
+    Parameters
+    ----------
+    matrix_of_term_freq : pandas.DataFrame
+        The matrix with term frequency
+    
+    Returns
+    -------
+    pandas.DataFrame
+        the TF-IDF matrix for the input matrix with the same columns
+    """
+    from sklearn.feature_extraction.text import TfidfTransformer
+    tfidf_transformer=TfidfTransformer(smooth_idf=True,use_idf=True)
+    tfidf_transformer=tfidf_transformer.fit_transform(matrix_of_term_freq)
+    X = pd.DataFrame(tfidf_transformer.toarray(), columns=matrix_of_term_freq.columns)
+    return X
