@@ -1,15 +1,17 @@
 import pandas as pd
 from collections import Counter
-import matplotlib.pyplot as plt
 
 from datetime import datetime
 
 
 def epic_estimated_vs_actual(team_size, avg_wip, avg_days_story):
-    conv_factor_eff_days = float(5/7)*0.8
+    conv_factor_eff_days = float(220/365)*0.8
 
     data_epic_jira = pd.read_csv("./data/jira_epic_data.csv", index_col=0)
     data_epic_processed = pd.read_csv("./data/processed_data.csv", index_col=0)
+
+    data_cols = ['Epic-Key', 'Estimated', 'Actual', 'Lead Time', 'Points', 'Error (%)', 'Error (days)']
+    data_out = pd.DataFrame()
 
     for index, row in data_epic_processed.iterrows():
         item = row
@@ -24,10 +26,44 @@ def epic_estimated_vs_actual(team_size, avg_wip, avg_days_story):
         print("\nEpic: %s " % row['doc_key'])
         print("Original Estimate: %s" % estimate_by_md)
         print("Actual: %0.0f" % actual_by_sp)
-        print("Error (Man/Days): %0.0f" %  (actual_by_sp-estimate_by_md))
+        error_md = actual_by_sp-estimate_by_md
+        print("Error (Man/Days): %0.0f" %  error_md)
+        
         error_pct = 100*(actual_by_sp/estimate_by_md - 1.0)
+        
         print("Error (%%): %0.0f" %  error_pct)
 
+        data_out = data_out.append({'Epic-Key': row['doc_key'], \
+            'Points': int(jira_data['story_points'].values[0]) , \
+            'Estimated': estimate_by_md, \
+            'Actual': actual_by_sp, \
+            'Lead Time': jira_data['lead_time'].values[0], \
+            'Error (%)': error_pct, \
+            'Error (days)': error_md }, ignore_index=True)
+    
+    data_out = data_out.reindex(columns=data_cols)
+    histogram_from_dataframe(data_out, data_cols[2:], 'epic_hist.png')
+    correlation_heatmap_from_dataframe(data_out.drop(columns=['Epic-Key']), 'epic_corr_heat.png')
+
+def histogram_from_dataframe(df, features, out_file_name):
+    import matplotlib.pyplot as plt
+    plt.figure()
+    df.hist(column=features)
+    plt.savefig(out_file_name)
+
+def correlation_heatmap_from_dataframe(df, out_file_name):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    matrix = np.triu(df.corr())
+    plt.figure(figsize=(16, 9))
+    corr_mtx = df.corr()
+    sns.heatmap(corr_mtx,annot = True, mask=matrix, cmap="RdYlBu",
+            xticklabels=corr_mtx.columns,
+            yticklabels=corr_mtx.columns)
+    
+    plt.yticks(rotation=0)
+    plt.savefig(out_file_name)
 
 def main():
     data_stories = pd.read_csv("./data/jira_story_data.csv", index_col=0)
@@ -43,7 +79,7 @@ def main():
     delta_days = abs(float(delta_days.days))
     total_stories = float(data_stories.shape[0])
 
-    team_size = 10
+    team_size = 14
     atp = total_stories/delta_days
     act = data_stories["Cycle Time"].mean()
     total_sp = data_stories["Points"].sum()
