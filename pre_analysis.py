@@ -44,6 +44,8 @@ def epic_estimated_vs_actual(team_size, avg_wip, avg_days_story):
     data_out = data_out.reindex(columns=data_cols)
     histogram_from_dataframe(data_out, data_cols[2:], 'epic_hist.png')
     correlation_heatmap_from_dataframe(data_out.drop(columns=['Epic-Key']), 'epic_corr_heat.png')
+    regression_plot_from_dataframe(data_out, 'Estimated', 'Actual', 'Epic-Key', 'epic_reg_plot.png')
+    data_out.to_csv('./data/pre_analysis_raw_data.csv')
 
 def histogram_from_dataframe(df, features, out_file_name):
     import matplotlib.pyplot as plt
@@ -61,9 +63,30 @@ def correlation_heatmap_from_dataframe(df, out_file_name):
     sns.heatmap(corr_mtx,annot = True, mask=matrix, cmap="RdYlBu",
             xticklabels=corr_mtx.columns,
             yticklabels=corr_mtx.columns)
+
+def regression_plot_from_dataframe(df, x_col, y_col, labels_col, out_file_name):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    plt.figure(figsize=(12, 6.75))
     
-    plt.yticks(rotation=0)
+    sns.regplot(x=x_col, y=y_col, ci=95, data=df)
+    
+    for x,y,label in zip(df[x_col],df[y_col],df[labels_col]):
+        label = str(label)
+
+        plt.annotate(label, # this is the text
+                    (x,y), # this is the point to label
+                    textcoords="offset points", # how to position the text
+                    xytext=(0,10), # distance from text to points (x,y)
+                    ha='center') # horizontal alignment can be left, right or center
+
+    plt.minorticks_on()
+    plt.grid(b=True, which='major', color='#666666', linestyle='-')
+    plt.grid(b=True, which='minor', color='#999999', linestyle='-', alpha=0.2)
     plt.savefig(out_file_name)
+
+
 
 def main():
     data_stories = pd.read_csv("./data/jira_story_data.csv", index_col=0)
